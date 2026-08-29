@@ -1,0 +1,127 @@
+{
+  "audits": [
+    {
+      "slug": "truncated-axis",
+      "title": "Truncated Y-axis",
+      "grade": "D",
+      "description": "Hockey-stick growth from a 95 baseline",
+      "chartFile": "truncated-axis.svg",
+      "violations": [
+        {
+          "code": "truncated_y_axis",
+          "severity": "major",
+          "title": "Truncated Y-axis",
+          "explanation": "The vertical axis starts at 95 instead of 0, exaggerating growth visually."
+        },
+        {
+          "code": "missing_ci",
+          "severity": "minor",
+          "title": "No confidence intervals",
+          "explanation": "Point estimates are shown without uncertainty bands or sample sizes."
+        }
+      ]
+    },
+    {
+      "slug": "cherry-picked",
+      "title": "Cherry-picked window",
+      "grade": "F",
+      "description": "Crash hidden by selective dates",
+      "chartFile": "cherry-picked.svg",
+      "violations": [
+        {
+          "code": "cherry_picked_range",
+          "severity": "critical",
+          "title": "Cherry-picked time range",
+          "explanation": "The visible window omits a prior downturn that reverses the narrative."
+        },
+        {
+          "code": "missing_context",
+          "severity": "major",
+          "title": "Missing historical context",
+          "explanation": "Full series includes volatility not shown in the highlighted window."
+        }
+      ]
+    },
+    {
+      "slug": "simpsons",
+      "title": "Simpson's paradox",
+      "grade": "C",
+      "description": "Aggregate trend reverses within groups",
+      "chartFile": "simpsons-paradox.svg",
+      "violations": [
+        {
+          "code": "aggregation_trap",
+          "severity": "major",
+          "title": "Simpson's paradox",
+          "explanation": "Overall trend is positive while every subgroup trend is negative."
+        }
+      ]
+    },
+    {
+      "slug": "dual-axis",
+      "title": "Dual-axis deception",
+      "grade": "D",
+      "description": "Two scales imply false correlation",
+      "chartFile": "dual-axis.svg",
+      "violations": [
+        {
+          "code": "dual_axis_mismatch",
+          "severity": "major",
+          "title": "Dual-axis scale manipulation",
+          "explanation": "Independent left/right scales are tuned to make unrelated series appear correlated."
+        },
+        {
+          "code": "causation_implied",
+          "severity": "minor",
+          "title": "Implied causation",
+          "explanation": "Overlay suggests one metric drives the other without statistical test."
+        }
+      ]
+    },
+    {
+      "slug": "missing-baseline",
+      "title": "Missing baseline",
+      "grade": "C",
+      "description": "Rebased index hides prior volatility",
+      "chartFile": "missing-baseline.svg",
+      "violations": [
+        {
+          "code": "rebased_index",
+          "severity": "major",
+          "title": "Opaque index rebasing",
+          "explanation": "Series rebased to 100 without showing the pre-index level or formula."
+        }
+      ]
+    },
+    {
+      "slug": "log-scale",
+      "title": "Unlabeled log scale",
+      "grade": "D",
+      "description": "Log curve presented as linear growth",
+      "chartFile": "log-scale.svg",
+      "violations": [
+        {
+          "code": "log_scale_unlabeled",
+          "severity": "major",
+          "title": "Log scale not disclosed",
+          "explanation": "Logarithmic axis makes modest early changes look like explosive linear growth."
+        }
+      ]
+    },
+    {
+      "slug": "sample-size",
+      "title": "Tiny sample trend",
+      "grade": "B",
+      "description": "Bold line through four points",
+      "chartFile": "sample-size.svg",
+      "violations": [
+        {
+          "code": "small_n",
+          "severity": "minor",
+          "title": "Underpowered sample",
+          "explanation": "Only four observations per series; trend line overstates certainty."
+        }
+      ]
+    }
+  ]
+}
