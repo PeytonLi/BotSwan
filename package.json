@@ -1,0 +1,20 @@
+{
+  "name": "botswan",
+  "private": true,
+  "scripts": {
+    "test": "pnpm -r test",
+    "test:all": "pnpm test && pnpm test:stats && pnpm test:e2e",
+    "test:stats": "cd services/stats && python -m pytest",
+    "test:shared": "pnpm --filter @botswan/shared test",
+    "test:web": "pnpm --filter @botswan/web test",
+    "test:artifacts": "pnpm --filter @botswan/artifacts test",
+    "test:agent": "pnpm --filter @botswan/agent test",
+    "test:e2e": "playwright test",
+    "build": "pnpm --filter @botswan/web build"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

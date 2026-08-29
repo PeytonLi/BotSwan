@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Next.js
+.next/
+out/
+.vercel
+
+# Convex
+.convex/
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Test / build artifacts
+coverage/
+dist/
+*.log
+playwright-report/
+test-results/
+
+# Generated artifacts storage (local dev)
+apps/web/public/artifacts/
