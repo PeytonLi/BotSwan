@@ -42,7 +42,7 @@ export default function RootLayout({
                 History
               </Link>
               <a
-                href="https://github.com"
+                href="https://github.com/PeytonLi/BotSwan"
                 className="hidden sm:inline hover:text-white transition-colors"
               >
                 GitHub
