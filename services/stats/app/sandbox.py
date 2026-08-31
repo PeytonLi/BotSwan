@@ -105,7 +105,10 @@ def _safe_import(name: str, globals_: dict | None = None, locals_: dict | None =
 
 
 def _run_code(code: str, stdout: io.StringIO) -> None:
-    namespace: dict[str, Any] = {"__builtins__": {**SAFE_BUILTINS, "__import__": _safe_import}}
+    namespace: dict[str, Any] = {
+        "__builtins__": {**SAFE_BUILTINS, "__import__": _safe_import},
+        "__name__": "__main__",
+    }
 
     def captured_print(*args: Any, **kwargs: Any) -> None:
         kwargs.setdefault("file", stdout)

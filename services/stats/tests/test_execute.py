@@ -25,3 +25,12 @@ def test_execute_allows_any_builtin():
     )
     assert response.status_code == 200
     assert response.json()["stdout"].strip() == "True"
+
+
+def test_execute_sets_main_name():
+    response = client.post(
+        "/execute",
+        json={"code": "print(__name__)"},
+    )
+    assert response.status_code == 200
+    assert response.json()["stdout"].strip() == "__main__"
