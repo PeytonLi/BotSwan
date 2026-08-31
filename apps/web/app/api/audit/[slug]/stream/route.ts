@@ -2,6 +2,7 @@ import { streamAuditUpdates } from "@/lib/audit-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 interface RouteContext {
   params: Promise<{ slug: string }>;

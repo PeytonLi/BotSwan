@@ -23,6 +23,7 @@ export interface AuditStartResponse {
   slug: string;
   mode: "mock" | "live";
   streamUrl: string;
+  backgroundTask: Promise<void>;
 }
 
 const inMemoryAudits = new Map<string, AuditRunState>();
@@ -82,9 +83,9 @@ export async function startAudit(
   const existing = sessionAudits.get(payload.sessionId) ?? [];
   sessionAudits.set(payload.sessionId, [slug, ...existing.filter((s) => s !== slug)]);
 
-  void runAuditInBackground(slug, payload, mode);
+  const backgroundTask = runAuditInBackground(slug, payload, mode);
 
-  return { slug, mode, streamUrl };
+  return { slug, mode, streamUrl, backgroundTask };
 }
 
 async function runAuditInBackground(
@@ -242,29 +243,81 @@ async function runAuditInBackground(
   }
 }
 
+function convexAuditToRunState(
+  slug: string,
+  audit: {
+    status: string;
+    agentSteps: AuditRunState["agentSteps"];
+    cost: AuditRunState["cost"];
+    grade?: string;
+    trustScore?: number;
+    violations: AuditRunState["violations"];
+    artifacts?: AuditRunState["artifacts"];
+  },
+): AuditRunState {
+  const done =
+    audit.status === "complete" ||
+    audit.status === "failed" ||
+    audit.agentSteps.some((s) => s.status === "error");
+
+  return {
+    slug,
+    status:
+      audit.status === "complete"
+        ? "complete"
+        : audit.status === "failed"
+          ? "failed"
+          : "running",
+    agentSteps: audit.agentSteps,
+    cost: audit.cost,
+    grade: audit.grade,
+    trustScore: audit.trustScore,
+    violations: audit.violations,
+    artifacts: audit.artifacts,
+    done,
+  };
+}
+
+async function loadAuditState(slug: string): Promise<AuditRunState | undefined> {
+  const memory = inMemoryAudits.get(slug);
+  if (memory) return memory;
+
+  const convex = getConvexClient();
+  if (!convex) return undefined;
+
+  const audit = await convex.query(api.audits.getBySlug, { slug });
+  if (!audit) return undefined;
+
+  return convexAuditToRunState(slug, audit);
+}
+
 export async function* streamAuditUpdates(
   slug: string,
 ): AsyncGenerator<AuditRunState> {
-  let lastStepCount = -1;
+  let lastFingerprint = "";
 
-  for (let i = 0; i < 120; i += 1) {
-    const state = inMemoryAudits.get(slug);
+  // Up to ~5 minutes at 500ms intervals (live GLM pipeline can be slow).
+  for (let i = 0; i < 600; i += 1) {
+    const state = await loadAuditState(slug);
     if (!state) {
-      await delay(100);
+      await delay(200);
       continue;
     }
 
-    if (
-      state.agentSteps.length !== lastStepCount ||
-      state.done ||
-      i === 0
-    ) {
-      lastStepCount = state.agentSteps.length;
+    const fingerprint = JSON.stringify({
+      steps: state.agentSteps.length,
+      done: state.done,
+      status: state.status,
+      grade: state.grade,
+    });
+
+    if (fingerprint !== lastFingerprint || i === 0) {
+      lastFingerprint = fingerprint;
       yield state;
     }
 
     if (state.done) return;
-    await delay(250);
+    await delay(500);
   }
 }
 

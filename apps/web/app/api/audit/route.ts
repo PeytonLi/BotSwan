@@ -1,3 +1,4 @@
+import { waitUntil } from "@vercel/functions";
 import { NextResponse } from "next/server";
 import { startAudit } from "@/lib/audit-service";
 import {
@@ -7,6 +8,7 @@ import {
 import { getSessionIdFromRequest, SESSION_COOKIE_NAME } from "@/lib/session";
 
 export const runtime = "nodejs";
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   try {
@@ -14,11 +16,13 @@ export async function POST(request: Request) {
     const imageDataUrl = await resolveImageDataUrl(parsed);
 
     const sessionId = getSessionIdFromRequest(request);
-    const result = await startAudit({
+    const { backgroundTask, ...result } = await startAudit({
       sessionId,
       input: parsed.input,
       imageDataUrl,
     });
+
+    waitUntil(backgroundTask);
 
     const response = NextResponse.json(result);
     response.cookies.set(SESSION_COOKIE_NAME, sessionId, {
