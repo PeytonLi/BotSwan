@@ -129,5 +129,12 @@ export async function resolveImageDataUrl(
     return `data:image/png;base64,${firstPage.png_base64}`;
   }
 
+  if (parsed.imageDataUrl) {
+    const { normalizeVisionImageDataUrl } = await import(
+      "@/lib/normalize-vision-image"
+    );
+    return normalizeVisionImageDataUrl(parsed.imageDataUrl);
+  }
+
   return parsed.imageDataUrl;
 }
