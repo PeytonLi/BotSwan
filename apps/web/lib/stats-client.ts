@@ -130,3 +130,23 @@ export async function extractPdf(pdfBytes: ArrayBuffer): Promise<StatsExtractPdf
 
   return (await response.json()) as StatsExtractPdfResponse;
 }
+
+export async function rasterizeSvg(svgBytes: Uint8Array): Promise<ArrayBuffer> {
+  const url = `${getStatsBaseUrl()}/rasterize-svg`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "image/svg+xml" },
+    body: Buffer.from(svgBytes),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new StatsClientError(
+      `Stats API /rasterize-svg failed (${response.status}): ${body.slice(0, 200)}`,
+      response.status,
+    );
+  }
+
+  const data = (await response.json()) as StatsScreenshotResponse;
+  return Buffer.from(data.png_base64, "base64").buffer;
+}

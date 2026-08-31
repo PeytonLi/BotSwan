@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel, Field, HttpUrl
 
 from app.pdf import extract_pdf_pages
+from app.rasterize import rasterize_svg
 from app.render import render_chart
 from app.sandbox import ImportBlockedError, SandboxError, execute
 from app.screenshot import ScreenshotError, screenshot_url_stub
@@ -51,6 +52,10 @@ class ExtractPdfResponse(BaseModel):
     pages: list[PdfPageResponse]
 
 
+class RasterizeSvgResponse(BaseModel):
+    png_base64: str
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -80,6 +85,22 @@ def screenshot_url_endpoint(body: ScreenshotRequest) -> ScreenshotResponse:
     except ScreenshotError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return ScreenshotResponse(png_base64=base64.b64encode(png_bytes).decode("ascii"))
+
+
+@app.post("/rasterize-svg", response_model=RasterizeSvgResponse)
+async def rasterize_svg_endpoint(request: Request) -> RasterizeSvgResponse:
+    svg_bytes = await request.body()
+    if not svg_bytes:
+        raise HTTPException(status_code=400, detail="Empty SVG upload")
+
+    try:
+        png_bytes = rasterize_svg(svg_bytes)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return RasterizeSvgResponse(
+        png_base64=base64.b64encode(png_bytes).decode("ascii"),
+    )
 
 
 @app.post("/extract-pdf", response_model=ExtractPdfResponse)

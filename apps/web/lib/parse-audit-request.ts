@@ -133,7 +133,7 @@ export async function resolveImageDataUrl(
     const { normalizeVisionImageDataUrl } = await import(
       "@/lib/normalize-vision-image"
     );
-    return normalizeVisionImageDataUrl(parsed.imageDataUrl);
+    return await normalizeVisionImageDataUrl(parsed.imageDataUrl);
   }
 
   return parsed.imageDataUrl;

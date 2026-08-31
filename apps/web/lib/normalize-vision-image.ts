@@ -1,6 +1,6 @@
-import { Resvg } from "@resvg/resvg-js";
+import { rasterizeSvg } from "@/lib/stats-client";
 
-function decodeSvgFromDataUrl(dataUrl: string): string {
+function decodeSvgFromDataUrl(dataUrl: string): Uint8Array {
   const comma = dataUrl.indexOf(",");
   if (comma < 0) {
     throw new Error("Invalid SVG data URL");
@@ -10,21 +10,26 @@ function decodeSvgFromDataUrl(dataUrl: string): string {
   const payload = dataUrl.slice(comma + 1);
 
   if (meta.includes(";base64")) {
-    return Buffer.from(payload, "base64").toString("utf8");
+    return Uint8Array.from(Buffer.from(payload, "base64"));
   }
 
-  return decodeURIComponent(payload);
+  return Uint8Array.from(Buffer.from(decodeURIComponent(payload), "utf8"));
 }
 
-export function normalizeVisionImageDataUrl(dataUrl: string): string {
+export async function normalizeVisionImageDataUrl(
+  dataUrl: string,
+): Promise<string> {
   if (!dataUrl.startsWith("data:image/svg+xml")) {
     return dataUrl;
   }
 
-  const svg = decodeSvgFromDataUrl(dataUrl);
-  const resvg = new Resvg(svg, {
-    fitTo: { mode: "width", value: 960 },
-  });
-  const png = resvg.render().asPng();
-  return `data:image/png;base64,${png.toString("base64")}`;
+  if (!process.env.STATS_API_URL?.trim()) {
+    throw new Error(
+      "STATS_API_URL is not configured — cannot rasterize SVG uploads. Upload PNG or JPEG instead.",
+    );
+  }
+
+  const svgBytes = decodeSvgFromDataUrl(dataUrl);
+  const png = await rasterizeSvg(svgBytes);
+  return `data:image/png;base64,${Buffer.from(png).toString("base64")}`;
 }
