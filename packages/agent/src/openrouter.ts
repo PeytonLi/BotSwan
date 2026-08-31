@@ -35,6 +35,8 @@ export interface CreateCompletionOptions {
   model?: string;
   temperature?: number;
   top_p?: number;
+  /** Request JSON output and lower reasoning effort for structured pipeline steps. */
+  jsonMode?: boolean;
 }
 
 export interface OpenRouterClient {
@@ -59,9 +61,32 @@ interface OpenRouterCompletionResponse {
   choices?: Array<{
     message?: {
       content?: string | null;
+      reasoning?: string | null;
     };
   }>;
   usage?: OpenRouterUsageResponse;
+}
+
+export function extractJsonPayload(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced?.[1]) return fenced[1].trim();
+
+  const start = trimmed.indexOf("{");
+  const end = trimmed.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    return trimmed.slice(start, end + 1);
+  }
+
+  const arrayStart = trimmed.indexOf("[");
+  const arrayEnd = trimmed.lastIndexOf("]");
+  if (arrayStart >= 0 && arrayEnd > arrayStart) {
+    return trimmed.slice(arrayStart, arrayEnd + 1);
+  }
+
+  return trimmed;
 }
 
 export function buildVisionMessage(
@@ -96,19 +121,29 @@ export function createOpenRouterClient(
     async createCompletion(
       completionOptions: CreateCompletionOptions,
     ): Promise<CompletionResult> {
+      const body: Record<string, unknown> = {
+        model: completionOptions.model ?? defaultModel,
+        messages: completionOptions.messages,
+        temperature:
+          completionOptions.temperature ?? DEFAULT_LLM_PARAMS.temperature,
+        top_p: completionOptions.top_p ?? DEFAULT_LLM_PARAMS.top_p,
+      };
+
+      if (completionOptions.jsonMode) {
+        body.response_format = { type: "json_object" };
+        // GLM-5.3 Flash defaults to max reasoning; keep structured steps in content.
+        body.reasoning = { effort: "low" };
+      }
+
       const response = await fetchFn(`${baseUrl}/chat/completions`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${options.apiKey}`,
           "Content-Type": "application/json",
+          "HTTP-Referer": "https://botswan.vercel.app",
+          "X-Title": "BotSwan",
         },
-        body: JSON.stringify({
-          model: completionOptions.model ?? defaultModel,
-          messages: completionOptions.messages,
-          temperature:
-            completionOptions.temperature ?? DEFAULT_LLM_PARAMS.temperature,
-          top_p: completionOptions.top_p ?? DEFAULT_LLM_PARAMS.top_p,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
@@ -119,7 +154,8 @@ export function createOpenRouterClient(
       }
 
       const data = (await response.json()) as OpenRouterCompletionResponse;
-      const content = data.choices?.[0]?.message?.content ?? "";
+      const message = data.choices?.[0]?.message;
+      const content = message?.content?.trim() || message?.reasoning?.trim() || "";
 
       return {
         content,

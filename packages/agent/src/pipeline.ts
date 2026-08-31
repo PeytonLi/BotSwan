@@ -10,7 +10,11 @@ import type {
 import { PIPELINE_STEPS } from "@botswan/shared";
 import { computeGrade } from "@botswan/artifacts";
 import { CostTracker } from "./cost-tracker";
-import type { CompletionResult, OpenRouterClient } from "./openrouter";
+import {
+  extractJsonPayload,
+  type CompletionResult,
+  type OpenRouterClient,
+} from "./openrouter";
 import { buildComputeMessages } from "./prompts/compute";
 import { buildExtractMessages } from "./prompts/extract";
 import { buildPlanMessages } from "./prompts/plan";
@@ -95,10 +99,11 @@ function errorStep(step: PipelineStep, summary: string): AgentStep {
 }
 
 function parseJson<T>(raw: string, label: string): T {
+  const payload = extractJsonPayload(raw);
   try {
-    return JSON.parse(raw) as T;
+    return JSON.parse(payload) as T;
   } catch {
-    throw new Error(`Failed to parse ${label} JSON: ${raw.slice(0, 120)}`);
+    throw new Error(`Failed to parse ${label} JSON: ${payload.slice(0, 120)}`);
   }
 }
 
@@ -156,6 +161,7 @@ export async function runExtractPlanPipeline(
     async () => {
       const completion = await options.llm.createCompletion({
         messages: buildExtractMessages(options.imageDataUrl),
+        jsonMode: true,
       });
       return {
         result: parseJson<ChartExtraction>(completion.content, "EXTRACT"),
@@ -174,6 +180,7 @@ export async function runExtractPlanPipeline(
     async () => {
       const completion = await options.llm.createCompletion({
         messages: buildPlanMessages(extraction),
+        jsonMode: true,
       });
       return {
         result: parseJson<AuditPlan>(completion.content, "PLAN"),
@@ -372,6 +379,7 @@ export async function runFullAuditPipeline(
       const honestDataUrl = pngToDataUrl(renderPng);
       const completion = await options.visionLlm.createCompletion({
         messages: buildVerifyMessages(options.imageDataUrl, honestDataUrl),
+        jsonMode: true,
       });
       return {
         result: parseJson<VerifyResult>(completion.content, "VERIFY"),

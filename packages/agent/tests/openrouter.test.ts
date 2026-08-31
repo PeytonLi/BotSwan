@@ -1,9 +1,19 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildVisionMessage, createOpenRouterClient } from "../src/openrouter.js";
+import {
+  buildVisionMessage,
+  createOpenRouterClient,
+  extractJsonPayload,
+} from "../src/openrouter.js";
 
 describe("OpenRouter client", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("extractJsonPayload pulls JSON from fenced model output", () => {
+    expect(
+      extractJsonPayload('Here is the result:\n```json\n{"ok":true}\n```'),
+    ).toBe('{"ok":true}');
   });
 
   it("buildVisionMessage creates multimodal content with image_url", () => {
@@ -70,6 +80,7 @@ describe("OpenRouter client", () => {
 
     const body = JSON.parse(init.body as string);
     expect(body.model).toBe("z-ai/glm-5.3-flash");
+    expect(body.response_format).toBeUndefined();
     expect(body.messages[0].content).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "image_url" }),
@@ -99,5 +110,31 @@ describe("OpenRouter client", () => {
     await expect(
       client.createCompletion({ messages: [{ role: "user", content: "hi" }] }),
     ).rejects.toThrow("OpenRouter request failed (401)");
+  });
+
+  it("sends json mode and low reasoning effort when requested", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: '{"ok":true}' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
+      }),
+    });
+
+    const client = createOpenRouterClient({
+      apiKey: "test-key",
+      fetch: fetchMock as typeof fetch,
+    });
+
+    await client.createCompletion({
+      messages: [{ role: "user", content: "hi" }],
+      jsonMode: true,
+    });
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string,
+    );
+    expect(body.response_format).toEqual({ type: "json_object" });
+    expect(body.reasoning).toEqual({ effort: "low" });
   });
 });
