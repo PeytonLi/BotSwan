@@ -9,7 +9,9 @@ import {
 } from "@botswan/artifacts";
 import { getFrozenAudit } from "@/lib/frozen-audits";
 import { getInMemoryAudit } from "@/lib/audit-service";
+import { getConvexClient, api } from "@/lib/convex-client";
 import { renderStatsChart } from "@/lib/stats-client";
+import type { Violation } from "@botswan/shared";
 
 export const runtime = "nodejs";
 
@@ -64,21 +66,68 @@ async function readChartSvg(slug: string): Promise<string | null> {
   }
 }
 
-export async function GET(_request: Request, { params }: RouteParams) {
-  const { slug, file } = await params;
-  const frozen = getFrozenAudit(slug);
-  const memory = getInMemoryAudit(slug);
-  const violations = frozen?.violations ?? memory?.violations;
-  const title = frozen?.title ?? `Audit ${slug}`;
+interface LoadedAudit {
+  violations: Violation[];
+  title: string;
+  grade?: string;
+  trustScore?: number;
+  isFrozen: boolean;
+}
 
-  if (!violations || violations.length === 0) {
-    if (!frozen && !memory) {
-      return NextResponse.json({ error: "Audit not found" }, { status: 404 });
+async function loadAudit(slug: string): Promise<LoadedAudit | null> {
+  const frozen = getFrozenAudit(slug);
+  if (frozen) {
+    const { grade, trustScore } = computeGrade(frozen.violations);
+    return {
+      violations: frozen.violations,
+      title: frozen.title,
+      grade: frozen.grade ?? grade,
+      trustScore,
+      isFrozen: true,
+    };
+  }
+
+  const memory = getInMemoryAudit(slug);
+  if (memory && (memory.violations.length > 0 || memory.status === "complete")) {
+    return {
+      violations: memory.violations,
+      title: `Audit ${slug}`,
+      grade: memory.grade,
+      trustScore: memory.trustScore,
+      isFrozen: false,
+    };
+  }
+
+  const convex = getConvexClient();
+  if (convex) {
+    const audit = await convex.query(api.audits.getBySlug, { slug });
+    if (audit && audit.status === "complete") {
+      return {
+        violations: audit.violations,
+        title: `Audit ${slug}`,
+        grade: audit.grade,
+        trustScore: audit.trustScore,
+        isFrozen: false,
+      };
     }
   }
 
-  const auditViolations = violations ?? [];
-  const { grade, trustScore } = computeGrade(auditViolations);
+  return null;
+}
+
+export async function GET(_request: Request, { params }: RouteParams) {
+  const { slug, file } = await params;
+  const loaded = await loadAudit(slug);
+
+  if (!loaded) {
+    return NextResponse.json({ error: "Audit not found" }, { status: 404 });
+  }
+
+  const { violations: auditViolations, title, isFrozen } = loaded;
+  const { grade, trustScore } =
+    loaded.grade && loaded.trustScore !== undefined
+      ? { grade: loaded.grade, trustScore: loaded.trustScore }
+      : computeGrade(auditViolations);
 
   switch (file) {
     case "report-card.svg": {
@@ -147,7 +196,7 @@ export async function GET(_request: Request, { params }: RouteParams) {
     }
 
     case "original.svg": {
-      const svg = frozen ? await readChartSvg(slug) : null;
+      const svg = isFrozen ? await readChartSvg(slug) : null;
       if (!svg) {
         return NextResponse.json({ error: "Chart not found" }, { status: 404 });
       }
